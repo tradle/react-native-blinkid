@@ -1,0 +1,15 @@
+{
+  "name": "react-native-blinkid",
+  "version": "1.0.0",
+  "description": "React Native adapter for MicroBlink's BlinkID SDK",
+  "main": "index.js",
+  "author": "Mark Vayngrib <mark@tradle.io> (http://github.com/mvayngrib)",
+  "license": "MIT",
+  "keywords": [
+    "react",
+    "react-native",
+    "react-component",
+    "blinkid",
+    "microblink"
+  ]
+}
