@@ -38,7 +38,7 @@ class MyComponent extends React.Component {
     return (
       <TouchableHighlight>
         onPress={this.scan.bind(this)}>
-        Scan
+        <Text>Scan</Text>
       </TouchableHighlight>
     )
   }
