@@ -1,0 +1,47 @@
+
+buildscript {
+  repositories {
+    jcenter()
+  }
+
+  dependencies {
+    classpath 'com.android.tools.build:gradle:2.2.3'
+  }
+}
+
+apply plugin: 'com.android.library'
+
+android {
+    compileSdkVersion 25
+    buildToolsVersion "25.0.1"
+
+    defaultConfig {
+        minSdkVersion 16
+        targetSdkVersion 22
+        versionCode 1
+        versionName "1.0"
+        ndk {
+            abiFilters "armeabi-v7a", "x86"
+        }
+    }
+    lintOptions {
+       warning 'InvalidPackage'
+    }
+}
+
+repositories {
+    mavenCentral()
+    maven {
+        url 'https://maven.microblink.com'
+    }
+}
+
+dependencies {
+//    compile project(':LibBlinkID')
+	compile('com.microblink:blinkid:3.4.0@aar') {
+        transitive = true
+    }
+    compile "com.android.support:appcompat-v7:25.1.0"
+    compile 'com.facebook.react:react-native:+'
+}
+

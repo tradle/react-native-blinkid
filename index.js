@@ -1,7 +1,15 @@
+import {
+  NativeModules,
+  Platform
+} from 'react-native'
 
-import { NativeModules } from 'react-native'
-const { RNBlinkID } = NativeModules
-const { scan, dismiss, setKey } = promisifyAll(RNBlinkID)
+console.log(Object.keys(NativeModules))
+let RNBlinkID = Platform.OS === 'ios' ? NativeModules.RNMicroBlinkManager : NativeModules.RNBlinkID
+if (Platform.OS === 'ios') {
+  RNBlinkID = promisifyAll(RNBlinkID)
+}
+
+const { scan, dismiss, setKey } = RNBlinkID
 const resultProps = ['mrtd', 'usdl', 'eudl']
 const validators = {
   mrtd: validateMRTDOptions,
@@ -30,17 +38,7 @@ module.exports = {
    * @return {Promise}
    */
   scan: async (opts={}) => {
-    const {
-      licenseKey=LICENSE_KEY,
-      mrtd,
-      usdl,
-      eudl,
-      detector,
-      base64,
-      imagePath
-    } = opts
-
-    if (!licenseKey) {
+    if (!(opts.licenseKey || licenseKey)) {
       throw new Error('set or pass in licenseKey first')
     }
 
