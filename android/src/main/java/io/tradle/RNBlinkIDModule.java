@@ -288,7 +288,7 @@ public class RNBlinkIDModule extends ReactContextBaseJavaModule {
     currentActivity.startActivityForResult(intent, SCAN_REQUEST_CODE);
   }
 
-  public void resetForNextScan() {
+  private void resetForNextScan() {
     scanPromise = null;
     opts = null;
   }
