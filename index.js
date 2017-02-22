@@ -17,6 +17,12 @@ const validators = {
   detector: validateDetectorOptions
 }
 
+const normalizers = {
+  mrtd: normalizeMRTDResult,
+  usdl: normalizeUSDLResult,
+  eudl: normalizeEUDLResult
+}
+
 let LICENSE_KEY
 
 module.exports = {
@@ -53,7 +59,14 @@ module.exports = {
     }
 
     const result = await scan(opts)
-    return normalizeResults(result)
+    for (let p in result) {
+      let normalize = normalizers[p]
+      if (normalize) {
+        result[p] = normalize(result[p])
+      }
+    }
+
+    return result
   },
   dismiss
 }
@@ -74,8 +87,63 @@ function validateDetectorOptions (options) {
   // TODO:
 }
 
-function normalizeResults (result) {
+function normalizeEUDLResult (result) {
+  const { personal } = result
+  const { birthData } = personal
+  if (birthData) {
+    const match = birthData.match(/^(\d+\.\d+\.\d+)/)
+    if (match) {
+      personal.dateOfBirth = match[1]
+    }
+  }
+
+  normalizeDates(result, parseEUDate)
   return result
+}
+
+function normalizeMRTDResult (result) {
+  return result
+}
+
+function normalizeUSDLResult (result) {
+  normalizeDates(result, parseUSDate)
+  return result
+}
+
+function normalizeDates (result, normalizer) {
+  const { personal, document } = result
+  if (typeof personal.dateOfBirth === 'string') {
+    personal.dateOfBirth = normalizer(personal.dateOfBirth)
+  }
+
+  if (typeof document.dateOfExpiry === 'string') {
+    document.dateOfExpiry = normalizer(document.dateOfExpiry)
+  }
+
+  if (typeof document.dateOfIssue === 'string') {
+    document.dateOfIssue = normalizer(document.dateOfIssue)
+  }
+
+  return result
+}
+
+function parseEUDate (str) {
+  const [day, month, year] = str.split('.')
+  return dateFromParts({ day, month, year })
+}
+
+function parseUSDate (str) {
+  const [month, day, year] = [
+    str.slice(0, 2),
+    str.slice(2, 4),
+    str.slice(4)
+  ]
+
+  return dateFromParts({ day, month, year })
+}
+
+function dateFromParts ({ day, month, year }) {
+  return new Date(`${year}/${month}/${day}`).getTime()
 }
 
 function promisify (fn) {

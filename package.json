@@ -11,5 +11,13 @@
     "react-component",
     "blinkid",
     "microblink"
-  ]
+  ],
+  "devDependencies": {
+    "babel-eslint": "latest",
+    "eslint": "^3.16.0",
+    "eslint-plugin-react": "latest"
+  },
+  "scripts": {
+    "lint": "eslint --quiet --ignore-path .gitignore ."
+  }
 }
