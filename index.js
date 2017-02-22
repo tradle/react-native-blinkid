@@ -37,13 +37,19 @@ module.exports = {
    * @return {Promise}
    */
   scan: async (opts={}) => {
-    if (!(opts.licenseKey || licenseKey)) {
+    const licenseKey = opts.licenseKey || LICENSE_KEY
+    if (!licenseKey) {
       throw new Error('set or pass in licenseKey first')
     }
 
     for (let p in opts) {
       let validate = validators[p]
       if (validate) validate(opts[p])
+    }
+
+    opts = {
+      ...opts,
+      licenseKey
     }
 
     const result = await scan(opts)
