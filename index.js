@@ -3,7 +3,7 @@ import {
   Platform
 } from 'react-native'
 
-let RNBlinkID = Platform.OS === 'ios' ? NativeModules.RNMicroBlinkManager : NativeModules.RNBlinkID
+let { RNBlinkID } = NativeModules
 if (Platform.OS === 'ios') {
   RNBlinkID = promisifyAll(RNBlinkID)
 }
