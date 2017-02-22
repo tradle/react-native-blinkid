@@ -3,12 +3,15 @@ package io.tradle;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.os.Parcelable;
+import android.util.Base64;
 
 import com.facebook.react.bridge.ActivityEventListener;
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.BaseActivityEventListener;
+import com.facebook.react.bridge.LifecycleEventListener;
 import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
@@ -33,9 +36,10 @@ import com.microblink.recognizers.settings.RecognizerSettings;
 import com.microblink.util.RecognizerCompatibility;
 import com.microblink.util.RecognizerCompatibilityStatus;
 
+import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 
-public class RNBlinkIDModule extends ReactContextBaseJavaModule {
+public class RNBlinkIDModule extends ReactContextBaseJavaModule implements LifecycleEventListener {
 
   private final ReactApplicationContext reactContext;
   private final String notSupportedBecause;
@@ -46,6 +50,10 @@ public class RNBlinkIDModule extends ReactContextBaseJavaModule {
   private static final String E_EXPECTED_LICENSE_KEY = "E_EXPECTED_LICENSE_KEY";
   private static final String E_NOT_SUPPORTED = "E_NOT_SUPPORTED";
   private static final String E_DEVELOPER_ERROR = "E_DEVELOPER_ERROR";
+  private static final String JPEG_DATA_URI_PREFIX = "data:image/jpeg;base64,";
+  private static final String TYPE_EUDL = "eudl";
+  private static final String TYPE_MRTD = "mrtd";
+  private static final String TYPE_USDL = "usdl";
   private static final int SCAN_REQUEST_CODE = 5792151;
 
   // scan session variables
@@ -63,11 +71,24 @@ public class RNBlinkIDModule extends ReactContextBaseJavaModule {
 
       // for example, obtain parcelable recognition result
       Bundle extras = data.getExtras();
-      RecognitionResults activityResult = data.getParcelableExtra(ScanCard.EXTRAS_RECOGNITION_RESULTS);
-      Parcelable imageResults = data.getParcelableExtra(ScanCard.EXTRAS_IMAGE_METADATA_SETTINGS);
+      RecognitionResults scanResult = data.getParcelableExtra(ScanCard.EXTRAS_RECOGNITION_RESULTS);
+      Bitmap bitmap = data.getParcelableExtra(ScanCard.EXTRAS_IMAGE_METADATA_SETTINGS);
+      WritableMap image = null;
+      if (bitmap != null) {
+        image = Arguments.createMap();
+        int quality = 100;
+        if (opts.hasKey("quality")) {
+          quality = (int) (opts.getDouble("quality") * 100);
+        }
+
+        String base64 = toBase64(bitmap, quality);
+        image.putString("base64", base64);
+        image.putInt("width", bitmap.getWidth());
+        image.putInt("height", bitmap.getHeight());
+      }
 
       // get array of recognition results
-      BaseRecognitionResult[] resultArray = activityResult.getRecognitionResults();
+      BaseRecognitionResult[] resultArray = scanResult.getRecognitionResults();
       WritableMap allResults = Arguments.createMap();
       boolean yay = false;
       boolean hasEmpty = false;
@@ -83,15 +104,13 @@ public class RNBlinkIDModule extends ReactContextBaseJavaModule {
           continue;
         }
 
+        String type = null;
         WritableMap personal = Arguments.createMap();
         WritableMap address = Arguments.createMap();
         WritableMap document = Arguments.createMap();
         WritableMap resultsMap = Arguments.createMap();
-        resultsMap.putMap("personal", personal);
-        resultsMap.putMap("address", address);
-        resultsMap.putMap("document", document);
         if (baseResult instanceof EUDLRecognitionResult) {
-          allResults.putMap("eudl", resultsMap);
+          type = TYPE_EUDL;
           EUDLRecognitionResult result = (EUDLRecognitionResult) baseResult;
           personal.putString("firstName", result.getFirstName());
           personal.putString("lastName", result.getLastName());
@@ -103,6 +122,7 @@ public class RNBlinkIDModule extends ReactContextBaseJavaModule {
           document.putString("issuer", result.getDocumentIssuingAuthority());
           document.putString("country", result.getCountry().toString());
           address.putString("full", result.getAddress());
+          allResults.putMap("eudl", resultsMap);
         } else if (baseResult instanceof USDLScanResult) {
           USDLScanResult result = (USDLScanResult) baseResult;
           if (result.isUncertain()) {
@@ -110,7 +130,7 @@ public class RNBlinkIDModule extends ReactContextBaseJavaModule {
             continue;
           }
 
-          allResults.putMap("usdl", resultsMap);
+          type = TYPE_USDL;
           personal.putString("firstName", result.getField(USDLScanResult.kCustomerFirstName));
           personal.putString("lastName", result.getField(USDLScanResult.kCustomerFamilyName));
           personal.putString("fullName", result.getField(USDLScanResult.kCustomerFullName));
@@ -136,8 +156,9 @@ public class RNBlinkIDModule extends ReactContextBaseJavaModule {
           document.putString("documentNumber", result.getField(USDLScanResult.kCustomerIdNumber));
           // deprecated
           document.putString("customerIdNumber", result.getField(USDLScanResult.kCustomerIdNumber));
+          allResults.putMap("usdl", resultsMap);
         } else if (baseResult instanceof MRTDRecognitionResult) {
-          allResults.putMap("mrtd", resultsMap);
+          type = TYPE_MRTD;
           MRTDRecognitionResult result = (MRTDRecognitionResult) baseResult;
           if (result.isMRZParsed()) {
             personal.putString("lastName", result.getPrimaryId());
@@ -158,7 +179,20 @@ public class RNBlinkIDModule extends ReactContextBaseJavaModule {
             // or ask user to try again
             resultsMap.putString("ocr", result.getOcrResult().toString());
           }
+
         }
+
+        if (type != null) {
+          yay = true;
+          resultsMap.putMap("personal", personal);
+          resultsMap.putMap("address", address);
+          resultsMap.putMap("document", document);
+          if (image != null) {
+            resultsMap.putMap("image", image);
+          }
+        }
+
+        allResults.putMap(type, resultsMap);
       }
 
       if (yay) {
@@ -178,6 +212,26 @@ public class RNBlinkIDModule extends ReactContextBaseJavaModule {
       resetForNextScan();
     }
   };
+
+  @Override
+  public void onHostDestroy() {
+    resetForNextScan();
+  }
+
+  @Override
+  public void onHostPause() {
+  }
+
+  @Override
+  public void onHostResume() {
+  }
+
+  private static String toBase64(final Bitmap bitmap, final int quality) {
+    ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+    bitmap.compress(Bitmap.CompressFormat.JPEG, quality, byteArrayOutputStream);
+    byte[] byteArray = byteArrayOutputStream.toByteArray();
+    return JPEG_DATA_URI_PREFIX + Base64.encodeToString(byteArray, Base64.NO_WRAP);
+  }
 
 //  private MetadataListener imageExtractor = new MetadataListener() {
 //
@@ -228,6 +282,7 @@ public class RNBlinkIDModule extends ReactContextBaseJavaModule {
   public RNBlinkIDModule(ReactApplicationContext reactContext) {
     super(reactContext);
     this.reactContext = reactContext;
+    reactContext.addActivityEventListener(mActivityEventListener);
     RecognizerCompatibilityStatus supportStatus = RecognizerCompatibility.getRecognizerCompatibilityStatus(reactContext);
     if (supportStatus != RecognizerCompatibilityStatus.RECOGNIZER_SUPPORTED) {
       this.notSupportedBecause = supportStatus.name();
@@ -288,7 +343,7 @@ public class RNBlinkIDModule extends ReactContextBaseJavaModule {
     currentActivity.startActivityForResult(intent, SCAN_REQUEST_CODE);
   }
 
-  private void resetForNextScan() {
+  public void resetForNextScan() {
     scanPromise = null;
     opts = null;
   }
