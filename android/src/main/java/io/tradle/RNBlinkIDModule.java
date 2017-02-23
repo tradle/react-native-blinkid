@@ -20,7 +20,6 @@ import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.bridge.WritableMap;
 import com.microblink.activity.ScanCard;
 import com.microblink.hardware.camera.CameraType;
-import com.microblink.image.Image;
 import com.microblink.metadata.MetadataSettings;
 import com.microblink.recognizers.BaseRecognitionResult;
 import com.microblink.recognizers.RecognitionResults;
@@ -37,7 +36,11 @@ import com.microblink.util.RecognizerCompatibility;
 import com.microblink.util.RecognizerCompatibilityStatus;
 
 import java.io.ByteArrayOutputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Map;
 
 public class RNBlinkIDModule extends ReactContextBaseJavaModule implements LifecycleEventListener {
 
@@ -59,7 +62,6 @@ public class RNBlinkIDModule extends ReactContextBaseJavaModule implements Lifec
   // scan session variables
   private ReadableMap opts;
   private Promise scanPromise;
-  private Image image;
 
   private final ActivityEventListener mActivityEventListener = new BaseActivityEventListener() {
     @Override
@@ -72,20 +74,8 @@ public class RNBlinkIDModule extends ReactContextBaseJavaModule implements Lifec
       // for example, obtain parcelable recognition result
       Bundle extras = data.getExtras();
       RecognitionResults scanResult = data.getParcelableExtra(ScanCard.EXTRAS_RECOGNITION_RESULTS);
-      Bitmap bitmap = data.getParcelableExtra(ScanCard.EXTRAS_IMAGE_METADATA_SETTINGS);
-      WritableMap image = null;
-      if (bitmap != null) {
-        image = Arguments.createMap();
-        int quality = 100;
-        if (opts.hasKey("quality")) {
-          quality = (int) (opts.getDouble("quality") * 100);
-        }
 
-        String base64 = toBase64(bitmap, quality);
-        image.putString("base64", base64);
-        image.putInt("width", bitmap.getWidth());
-        image.putInt("height", bitmap.getHeight());
-      }
+      Map<String, Bitmap> images = RNBlinkIDImageManager.get();
 
       // get array of recognition results
       BaseRecognitionResult[] resultArray = scanResult.getRecognitionResults();
@@ -120,9 +110,17 @@ public class RNBlinkIDModule extends ReactContextBaseJavaModule implements Lifec
           document.putDouble("dateOfIssue", result.getDocumentIssueDate().getTime());
           document.putDouble("dateOfExpiry", result.getDocumentExpiryDate().getTime());
           document.putString("issuer", result.getDocumentIssuingAuthority());
-          document.putString("country", result.getCountry().toString());
+          EUDLCountry eudlCountry = result.getCountry();
+          if (eudlCountry != EUDLCountry.EUDL_COUNTRY_AUTO) {
+            String country = eudlCountry.toString();
+            if (country.startsWith("EUDL_COUNTRY_")) {
+              country = country.substring(13);
+            }
+
+            document.putString("country", country);
+          }
+
           address.putString("full", result.getAddress());
-          allResults.putMap("eudl", resultsMap);
         } else if (baseResult instanceof USDLScanResult) {
           USDLScanResult result = (USDLScanResult) baseResult;
           if (result.isUncertain()) {
@@ -156,7 +154,6 @@ public class RNBlinkIDModule extends ReactContextBaseJavaModule implements Lifec
           document.putString("documentNumber", result.getField(USDLScanResult.kCustomerIdNumber));
           // deprecated
           document.putString("customerIdNumber", result.getField(USDLScanResult.kCustomerIdNumber));
-          allResults.putMap("usdl", resultsMap);
         } else if (baseResult instanceof MRTDRecognitionResult) {
           type = TYPE_MRTD;
           MRTDRecognitionResult result = (MRTDRecognitionResult) baseResult;
@@ -179,20 +176,24 @@ public class RNBlinkIDModule extends ReactContextBaseJavaModule implements Lifec
             // or ask user to try again
             resultsMap.putString("ocr", result.getOcrResult().toString());
           }
-
         }
 
-        if (type != null) {
-          yay = true;
-          resultsMap.putMap("personal", personal);
-          resultsMap.putMap("address", address);
-          resultsMap.putMap("document", document);
-          if (image != null) {
-            resultsMap.putMap("image", image);
-          }
-        }
+        if (type == null) continue;
 
+        // only one result for now
+        yay = true;
+        resultsMap.putMap("personal", personal);
+        resultsMap.putMap("address", address);
+        resultsMap.putMap("document", document);
         allResults.putMap(type, resultsMap);
+        Bitmap bitmap = images.get(type.toUpperCase());
+        if (bitmap == null && type.equalsIgnoreCase("usdl")) {
+          bitmap = images.get("Success");
+        }
+
+        if (bitmap != null) {
+          allResults.putMap("image", serializeImage(bitmap));
+        }
       }
 
       if (yay) {
@@ -213,6 +214,35 @@ public class RNBlinkIDModule extends ReactContextBaseJavaModule implements Lifec
     }
   };
 
+  private WritableMap serializeImage(Bitmap bitmap) {
+    WritableMap image = Arguments.createMap();
+    int quality = 100;
+    if (opts.hasKey("quality")) {
+      quality = (int) (opts.getDouble("quality") * 100);
+    }
+
+    ByteArrayOutputStream bytes = getBytes(bitmap, quality);
+    String imagePath = getString(opts, "imagePath");
+    if (imagePath != null) {
+      try {
+        OutputStream outputStream = new FileOutputStream(imagePath);
+        bytes.writeTo(outputStream);
+      } catch (IOException i) {
+        image.putString("error", i.getLocalizedMessage());
+      }
+    }
+
+    if (getBoolean(opts, "base64")) {
+      String base64 = toBase64(bytes);
+      image.putString("base64", base64);
+      // original width/height, ignoring compression
+      image.putInt("width", bitmap.getWidth());
+      image.putInt("height", bitmap.getHeight());
+    }
+
+    return image;
+  }
+
   @Override
   public void onHostDestroy() {
     resetForNextScan();
@@ -226,58 +256,16 @@ public class RNBlinkIDModule extends ReactContextBaseJavaModule implements Lifec
   public void onHostResume() {
   }
 
-  private static String toBase64(final Bitmap bitmap, final int quality) {
+  private static ByteArrayOutputStream getBytes (final Bitmap bitmap, final int quality) {
     ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
     bitmap.compress(Bitmap.CompressFormat.JPEG, quality, byteArrayOutputStream);
+    return byteArrayOutputStream;
+  }
+
+  private static String toBase64(final ByteArrayOutputStream byteArrayOutputStream) {
     byte[] byteArray = byteArrayOutputStream.toByteArray();
     return JPEG_DATA_URI_PREFIX + Base64.encodeToString(byteArray, Base64.NO_WRAP);
   }
-
-//  private MetadataListener imageExtractor = new MetadataListener() {
-//
-//    /**
-//     * Called when metadata is available.
-//     */
-//    @Override
-//    public void onMetadataAvailable(Metadata metadata) {
-//      if (metadata instanceof ImageMetadata) {
-//        ImageMetadata imageMetadata = (ImageMetadata) metadata;
-//        image = (imageMetadata).getImage().clone();
-//      }
-//    }
-//  };
-//
-//  private boolean saveImageToFile (Image image) {
-//    Bitmap b = image.convertToBitmap();
-//    FileOutputStream fos = null;
-//    try {
-//      fos = new FileOutputStream(filename);
-//      boolean success = b.compress(Bitmap.CompressFormat.JPEG, 100, fos);
-//      if (success) return true;
-//
-//      Log.e(this, "Failed to compress bitmap!");
-//      if (fos != null) {
-//        try {
-//          fos.close();
-//        } catch (IOException ignored) {
-//        } finally {
-//          fos = null;
-//        }
-//
-//        new File(filename).delete();
-//      }
-//    } catch (FileNotFoundException e) {
-//      Log.e(this, e, "Failed to save image");
-//      return false;
-//    } finally {
-//      if (fos != null) {
-//        try {
-//          fos.close();
-//        } catch (IOException ignored) {
-//        }
-//      }
-//    }
-//  }
 
   public RNBlinkIDModule(ReactApplicationContext reactContext) {
     super(reactContext);
@@ -329,15 +317,17 @@ public class RNBlinkIDModule extends ReactContextBaseJavaModule implements Lifec
     Activity currentActivity = getCurrentActivity();
     Intent intent = new Intent(currentActivity, ScanCard.class);
     intent.putExtra(ScanCard.EXTRAS_LICENSE_KEY, licenseKey);
-    intent.putExtra(ScanCard.EXTRAS_CAMERA_TYPE, (Parcelable)CameraType.CAMERA_BACKFACE);
+    intent.putExtra(ScanCard.EXTRAS_CAMERA_TYPE, (Parcelable) CameraType.CAMERA_BACKFACE);
 
     RecognitionSettings settings = new RecognitionSettings();
-    settings.setNumMsBeforeTimeout(10000);
+    settings.setNumMsBeforeTimeout(20000);
     settings.setRecognizerSettingsArray(getRecognitionSettings(opts));
-    intent.putExtra(ScanCard.EXTRAS_RECOGNITION_SETTINGS, settings);
 
-    MetadataSettings.ImageMetadataSettings imageMetadataSettings = getImageMetadataSettings(opts);
-    intent.putExtra(ScanCard.EXTRAS_IMAGE_METADATA_SETTINGS, imageMetadataSettings);
+    intent.putExtra(ScanCard.EXTRAS_RECOGNITION_SETTINGS, settings);
+    // pass implementation of image listener that will obtain document images
+    intent.putExtra(ScanCard.EXTRAS_IMAGE_LISTENER, new MyImageListener());
+    // pass image metadata settings that specifies which images will be obtained
+    intent.putExtra(ScanCard.EXTRAS_IMAGE_METADATA_SETTINGS, getImageMetadataSettings(opts));
 
     // Starting Activity
     currentActivity.startActivityForResult(intent, SCAN_REQUEST_CODE);
@@ -346,6 +336,7 @@ public class RNBlinkIDModule extends ReactContextBaseJavaModule implements Lifec
   public void resetForNextScan() {
     scanPromise = null;
     opts = null;
+    RNBlinkIDImageManager.clear();
   }
 
   private String getString(ReadableMap map, String key) {
@@ -357,9 +348,7 @@ public class RNBlinkIDModule extends ReactContextBaseJavaModule implements Lifec
   }
 
   private MetadataSettings.ImageMetadataSettings getImageMetadataSettings(ReadableMap opts) {
-//    MetadataSettings settings = new MetadataSettings();
     MetadataSettings.ImageMetadataSettings ims = new MetadataSettings.ImageMetadataSettings();
-
     String imagePath = getString(opts, "imagePath");
     boolean outputBase64 = getBoolean(opts, "base64");
     boolean needImage = imagePath != null || outputBase64;
@@ -367,12 +356,12 @@ public class RNBlinkIDModule extends ReactContextBaseJavaModule implements Lifec
       // enable returning of dewarped images, if they are available
       ims.setDewarpedImageEnabled(true);
       // enable returning of image that was used to obtain valid scanning result
-//      ims.setSuccessfulScanFrameEnabled(true);
+      if (opts.hasKey("usdl")) {
+        ims.setSuccessfulScanFrameEnabled(true);
+      }
     }
 
     return ims;
-//    settings.setImageMetadataSettings(ims);
-//    return settings;
   }
 
   private RecognizerSettings[] getRecognitionSettings(ReadableMap opts) {
