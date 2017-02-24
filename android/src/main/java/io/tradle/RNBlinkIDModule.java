@@ -32,6 +32,7 @@ import com.microblink.recognizers.blinkid.mrtd.MRTDRecognitionResult;
 import com.microblink.recognizers.blinkid.mrtd.MRTDRecognizerSettings;
 import com.microblink.recognizers.settings.RecognitionSettings;
 import com.microblink.recognizers.settings.RecognizerSettings;
+import com.microblink.recognizers.settings.RecognizerSettingsUtils;
 import com.microblink.util.RecognizerCompatibility;
 import com.microblink.util.RecognizerCompatibilityStatus;
 
@@ -50,6 +51,7 @@ public class RNBlinkIDModule extends ReactContextBaseJavaModule implements Lifec
   private String licenseKey;
   private static final String E_SCAN_FAILED_INVALID = "E_SCAN_FAILED_INVALID";
   private static final String E_SCAN_FAILED_EMPTY = "E_SCAN_FAILED_EMPTY";
+  private static final String E_REQUIRES_AUTOFOCUS = "E_REQUIRES_AUTOFOCUS";
   private static final String E_ONE_REQ_AT_A_TIME = "E_ONE_REQ_AT_A_TIME";
   private static final String E_EXPECTED_LICENSE_KEY = "E_EXPECTED_LICENSE_KEY";
   private static final String E_NOT_SUPPORTED = "E_NOT_SUPPORTED";
@@ -58,8 +60,23 @@ public class RNBlinkIDModule extends ReactContextBaseJavaModule implements Lifec
   private static final String TYPE_EUDL = "eudl";
   private static final String TYPE_MRTD = "mrtd";
   private static final String TYPE_USDL = "usdl";
-  private static final String KEY_IS_SUPPORTED = "isSupported";
+  private static final String KEY_NOT_SUPPORTED_BECAUSE = "notSupportedBecause";
+  private static final String KEY_PREFIX_SUPPORTS = "supports";
   private static final int SCAN_REQUEST_CODE = 5792151;
+  private static final Map<EUDLCountry, String> eudlCountryToString;
+  private static final Map<String, EUDLCountry> countryToEUDLCountry;
+  private final Map<String, Object> constants = new HashMap<>();
+  static
+  {
+    eudlCountryToString = new HashMap<>();
+    countryToEUDLCountry = new HashMap<>();
+    eudlCountryToString.put(EUDLCountry.EUDL_COUNTRY_UK, "UK");
+    eudlCountryToString.put(EUDLCountry.EUDL_COUNTRY_GERMANY, "DE");
+    eudlCountryToString.put(EUDLCountry.EUDL_COUNTRY_AUSTRIA, "AT");
+    countryToEUDLCountry.put("UK", EUDLCountry.EUDL_COUNTRY_UK);
+    countryToEUDLCountry.put("DE", EUDLCountry.EUDL_COUNTRY_GERMANY);
+    countryToEUDLCountry.put("AT", EUDLCountry.EUDL_COUNTRY_AUSTRIA);
+  }
 
   // scan session variables
   private ReadableMap opts;
@@ -111,15 +128,10 @@ public class RNBlinkIDModule extends ReactContextBaseJavaModule implements Lifec
           document.putString("documentNumber", result.getDriverNumber());
           document.putDouble("dateOfIssue", result.getDocumentIssueDate().getTime());
           document.putDouble("dateOfExpiry", result.getDocumentExpiryDate().getTime());
-          document.putString("issuer", result.getDocumentIssuingAuthority());
+          document.putString("issuer",  result.getDocumentIssuingAuthority());
           EUDLCountry eudlCountry = result.getCountry();
           if (eudlCountry != EUDLCountry.EUDL_COUNTRY_AUTO) {
-            String country = eudlCountry.toString();
-            if (country.startsWith("EUDL_COUNTRY_")) {
-              country = country.substring(13);
-            }
-
-            document.putString("country", country);
+            document.putString("country", eudlCountryToString.get(eudlCountry));
           }
 
           address.putString("full", result.getAddress());
@@ -223,9 +235,35 @@ public class RNBlinkIDModule extends ReactContextBaseJavaModule implements Lifec
     RecognizerCompatibilityStatus supportStatus = RecognizerCompatibility.getRecognizerCompatibilityStatus(reactContext);
     if (supportStatus != RecognizerCompatibilityStatus.RECOGNIZER_SUPPORTED) {
       this.notSupportedBecause = supportStatus.name();
-    } else {
-      this.notSupportedBecause = null;
+      return;
     }
+
+    this.notSupportedBecause = null;
+    if (RecognizerCompatibility.cameraHasAutofocus(CameraType.CAMERA_BACKFACE, reactContext)) {
+      supports(TYPE_EUDL, true);
+      supports(TYPE_USDL, true);
+      supports(TYPE_MRTD, true);
+      return;
+    }
+
+    EUDLRecognizerSettings eudl = new EUDLRecognizerSettings(EUDLCountry.EUDL_COUNTRY_AUTO);
+    USDLRecognizerSettings usdl = new USDLRecognizerSettings();
+    MRTDRecognizerSettings mrtd = new MRTDRecognizerSettings();
+    RecognizerSettings[] settings = new RecognizerSettings[]{ eudl, usdl, mrtd };
+    RecognizerSettings[] supported = RecognizerSettingsUtils.filterOutRecognizersThatRequireAutofocus(settings);
+    for (RecognizerSettings setting: supported) {
+      if (setting == eudl) {
+        supports(TYPE_EUDL, true);
+      } else if (setting == usdl) {
+        supports(TYPE_USDL, true);
+      } else if (setting == mrtd) {
+        supports(TYPE_MRTD, true);
+      }
+    }
+  }
+
+  private void supports(String type, boolean does) {
+    constants.put(KEY_PREFIX_SUPPORTS + type.toUpperCase(), does);
   }
 
   @Override
@@ -248,13 +286,15 @@ public class RNBlinkIDModule extends ReactContextBaseJavaModule implements Lifec
 
   @Override
   public Map<String, Object> getConstants() {
-    final Map<String, Object> constants = new HashMap<>();
-    constants.put(KEY_IS_SUPPORTED, this.notSupportedBecause == null);
+    if (this.notSupportedBecause != null) {
+      constants.put(KEY_NOT_SUPPORTED_BECAUSE, this.notSupportedBecause);
+    }
+
     return constants;
   }
 
   @ReactMethod
-  public void setKey(String licenseKey, final Promise promise) {
+  public void setLicenseKey(String licenseKey, final Promise promise) {
     this.licenseKey = licenseKey;
     promise.resolve(null);
   }
@@ -267,11 +307,6 @@ public class RNBlinkIDModule extends ReactContextBaseJavaModule implements Lifec
 
   @ReactMethod
   public void scan(ReadableMap opts, final Promise promise) {
-    if (notSupportedBecause != null) {
-      promise.reject(E_NOT_SUPPORTED, this.notSupportedBecause);
-      return;
-    }
-
     if (scanPromise != null) {
       promise.reject(E_ONE_REQ_AT_A_TIME, "Already running a scan");
       return;
@@ -298,7 +333,18 @@ public class RNBlinkIDModule extends ReactContextBaseJavaModule implements Lifec
 
     RecognitionSettings settings = new RecognitionSettings();
     settings.setNumMsBeforeTimeout(20000);
-    settings.setRecognizerSettingsArray(getRecognitionSettings(opts));
+
+    RecognizerSettings[] recognizerSettings = getRecognitionSettings(opts);
+    if (!RecognizerCompatibility.cameraHasAutofocus(CameraType.CAMERA_BACKFACE, reactContext)) {
+      int length = recognizerSettings.length;
+      recognizerSettings = RecognizerSettingsUtils.filterOutRecognizersThatRequireAutofocus(recognizerSettings);
+      if (recognizerSettings.length != length) {
+        scanPromise.reject(E_REQUIRES_AUTOFOCUS, "This scanning operation requires autofocus");
+        return;
+      }
+    }
+
+    settings.setRecognizerSettingsArray(recognizerSettings);
 
     intent.putExtra(ScanCard.EXTRAS_RECOGNITION_SETTINGS, settings);
     // pass implementation of image listener that will obtain document images
@@ -356,6 +402,15 @@ public class RNBlinkIDModule extends ReactContextBaseJavaModule implements Lifec
 
     if (opts.hasKey(TYPE_EUDL)) {
       ReadableMap eudlOpts = opts.getMap(TYPE_EUDL);
+      EUDLCountry country = null;
+      String countryStr = getString(opts, "issuer");
+      if (countryStr != null) {
+        countryStr = countryStr.toUpperCase();
+        country = countryToEUDLCountry.get(countryStr);
+      }
+
+      if (country == null) country = EUDLCountry.EUDL_COUNTRY_AUTO;
+
       EUDLRecognizerSettings sett = new EUDLRecognizerSettings(EUDLCountry.EUDL_COUNTRY_AUTO);
       sett.setShowFullDocument(getBoolean(eudlOpts, "showFullDocument"));
       settings.add(sett);
@@ -368,16 +423,7 @@ public class RNBlinkIDModule extends ReactContextBaseJavaModule implements Lifec
       settings.add(sett);
     }
 
-    RecognizerSettings[] arr = settings.toArray(new RecognizerSettings[settings.size()]);
-//    if (!RecognizerCompatibility.cameraHasAutofocus(CameraType.CAMERA_BACKFACE, reactContext)) {
-//      arr = RecognizerSettingsUtils.filterOutRecognizersThatRequireAutofocus(arr);
-//    }
-//
-//    if (!RecognizerCompatibility.cameraHasAutofocus(CameraType.CAMERA_FRONTFACE, reactContext)) {
-//      arr = RecognizerSettingsUtils.filterOutRecognizersThatRequireAutofocus(arr);
-//    }
-
-    return arr;
+    return settings.toArray(new RecognizerSettings[settings.size()]);
   }
 
   private WritableMap serializeImage(Bitmap bitmap) {

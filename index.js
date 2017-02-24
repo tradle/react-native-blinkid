@@ -8,7 +8,7 @@ if (Platform.OS === 'ios') {
   RNBlinkID = promisifyAll(RNBlinkID)
 }
 
-const { scan, dismiss, setKey } = RNBlinkID
+const { scan, dismiss, setLicenseKey, notSupportedBecause } = RNBlinkID
 const resultProps = ['mrtd', 'usdl', 'eudl']
 const validators = {
   mrtd: validateMRTDOptions,
@@ -23,53 +23,58 @@ const normalizers = {
   eudl: normalizeEUDLResult
 }
 
-let LICENSE_KEY
+module.exports = (function () {
+  let LICENSE_KEY
 
-module.exports = {
-  setLicenseKey: key => {
-    LICENSE_KEY = key
-    return setKey(key)
-  },
-  /**
-   * start a scan
-   * @param  {Object} opts
-   * @param  {Boolean} [base64] - if true, returns base64 image
-   * @param  {String} [imagePath] - path to which to save image
-   * @param  {String} [licenseKey=LICENSE_KEY]
-   * @param  {Object} [opts.mrtd]
-   * @param  {Object} [opts.usdl]
-   * @param  {Object} [opts.eudl]
-   * @param  {Object} [opts.detector]
-   * @return {Promise}
-   */
-  scan: async (opts={}) => {
-    const licenseKey = opts.licenseKey || LICENSE_KEY
-    if (!licenseKey) {
-      throw new Error('set or pass in licenseKey first')
-    }
+  if (notSupportedBecause) return { notSupportedBecause }
 
-    for (let p in opts) {
-      let validate = validators[p]
-      if (validate) validate(opts[p])
-    }
-
-    opts = {
-      ...opts,
-      licenseKey
-    }
-
-    const result = await scan(opts)
-    for (let p in result) {
-      let normalize = normalizers[p]
-      if (normalize) {
-        result[p] = normalize(result[p])
+  return {
+    ...RNBlinkID,
+    setLicenseKey: key => {
+      LICENSE_KEY = key
+      return setLicenseKey(key)
+    },
+    /**
+     * start a scan
+     * @param  {Object} opts
+     * @param  {Boolean} [base64] - if true, returns base64 image
+     * @param  {String} [imagePath] - path to which to save image
+     * @param  {String} [licenseKey=LICENSE_KEY]
+     * @param  {Object} [opts.mrtd]
+     * @param  {Object} [opts.usdl]
+     * @param  {Object} [opts.eudl]
+     * @param  {Object} [opts.detector]
+     * @return {Promise}
+     */
+    scan: async (opts={}) => {
+      const licenseKey = opts.licenseKey || LICENSE_KEY
+      if (!licenseKey) {
+        throw new Error('set or pass in licenseKey first')
       }
-    }
 
-    return result
-  },
-  dismiss
-}
+      for (let p in opts) {
+        let validate = validators[p]
+        if (validate) validate(opts[p])
+      }
+
+      opts = {
+        ...opts,
+        licenseKey
+      }
+
+      const result = await scan(opts)
+      for (let p in result) {
+        let normalize = normalizers[p]
+        if (normalize) {
+          result[p] = normalize(result[p])
+        }
+      }
+
+      return result
+    },
+    dismiss
+  }
+}())
 
 function validateMRTDOptions (options) {
   // TODO:

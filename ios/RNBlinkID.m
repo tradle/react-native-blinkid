@@ -22,6 +22,7 @@ NSString *const RNMBScanInProgressError = @"RNMBScanInProgressError";
 @property (nonatomic, strong) UIImage* image;
 @property (nonatomic, strong) NSDictionary* options;
 @property (nonatomic, strong) NSString* licenseKey;
+@property (nonatomic, strong) NSString* notSupportedBecause;
 
 @end
 
@@ -29,7 +30,29 @@ NSString *const RNMBScanInProgressError = @"RNMBScanInProgressError";
 
 RCT_EXPORT_MODULE();
 
-RCT_EXPORT_METHOD(setKey:(NSString*) key callback:(RCTResponseSenderBlock)callback)
+- (instancetype)init
+{
+    self = [super init];
+    if (self) {
+        NSError* error;
+        if ([PPCameraCoordinator isScanningUnsupportedForCameraType:PPCameraTypeBack error:&error]) {
+            self.notSupportedBecause = error.localizedDescription;
+        }
+    }
+    return self;
+}
+
+- (NSDictionary *)constantsToExport
+{
+    NSMutableDictionary* constants = [NSMutableDictionary dictionary];
+    if (self.notSupportedBecause != nil) {
+        [constants setObject:self.notSupportedBecause forKey:@"notSupportedBecause"];
+    }
+
+    return [NSDictionary dictionaryWithDictionary:constants];
+}
+
+RCT_EXPORT_METHOD(setLicenseKey:(NSString*) key callback:(RCTResponseSenderBlock)callback)
 {
     self.licenseKey = key;
     if (callback) callback(@[]);
@@ -461,6 +484,7 @@ RCT_EXPORT_METHOD(dismiss)
     [self resetScanState];
     [[self getRoot] dismissViewControllerAnimated:YES completion:nil];
 }
+
 
 //- (NSDictionary*) parseName: (NSString*)name {
 //  NSMutableDictionary names = [NSMutableDictionary dictionary];
