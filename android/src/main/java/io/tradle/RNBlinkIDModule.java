@@ -299,11 +299,11 @@ public class RNBlinkIDModule extends ReactContextBaseJavaModule implements Lifec
     promise.resolve(null);
   }
 
-  @ReactMethod
-  public void dismiss(final Promise promise) {
-    resetForNextScan();
-    promise.resolve(null);
-  }
+//  @ReactMethod
+//  public void dismiss(final Promise promise) {
+//    resetForNextScan();
+//    promise.resolve(null);
+//  }
 
   @ReactMethod
   public void scan(ReadableMap opts, final Promise promise) {
