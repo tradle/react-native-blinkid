@@ -86,7 +86,10 @@ public class RNBlinkIDModule extends ReactContextBaseJavaModule implements Lifec
     @Override
     public void onActivityResult(Activity activity, int requestCode, int resultCode, Intent data) {
       if (requestCode != SCAN_REQUEST_CODE) return;
-      if (resultCode != ScanCard.RESULT_OK || data == null) return;
+      if (resultCode != ScanCard.RESULT_OK || data == null) {
+        resetForNextScan();
+        return;
+      }
 
       // perform processing of the data here
 
