@@ -332,7 +332,7 @@ public class RNBlinkIDModule extends ReactContextBaseJavaModule implements Lifec
     intent.putExtra(ScanCard.EXTRAS_CAMERA_TYPE, (Parcelable) CameraType.CAMERA_BACKFACE);
 
     RecognitionSettings settings = new RecognitionSettings();
-    settings.setNumMsBeforeTimeout(20000);
+//    settings.setNumMsBeforeTimeout(20000);
 
     RecognizerSettings[] recognizerSettings = getRecognitionSettings(opts);
     if (!RecognizerCompatibility.cameraHasAutofocus(CameraType.CAMERA_BACKFACE, reactContext)) {
@@ -411,7 +411,7 @@ public class RNBlinkIDModule extends ReactContextBaseJavaModule implements Lifec
 
       if (country == null) country = EUDLCountry.EUDL_COUNTRY_AUTO;
 
-      EUDLRecognizerSettings sett = new EUDLRecognizerSettings(EUDLCountry.EUDL_COUNTRY_AUTO);
+      EUDLRecognizerSettings sett = new EUDLRecognizerSettings(country);
       sett.setShowFullDocument(getBoolean(eudlOpts, "showFullDocument"));
       settings.add(sett);
     }
