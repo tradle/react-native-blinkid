@@ -15,6 +15,8 @@
 NSString *const RNMBDocumentDecodingId = @"RNMBDocumentDecodingId";
 NSString *const RNMBMRTDDecodingId = @"RNMBMRTDDecodingId";
 NSString *const RNMBScanInProgressError = @"RNMBScanInProgressError";
+NSString *const RNMBUserCanceledError = @"RNMBUserCanceledError";
+NSString *const RNMBDeveloperCanceledError = @"RNMBDeveloperCanceledError";
 
 @interface RNBlinkID () <RCTBridgeModule, PPScanningDelegate>
 
@@ -154,8 +156,7 @@ RCT_EXPORT_METHOD(scan:(NSDictionary*) options callback:(RCTResponseSenderBlock)
 
     /** If scanning isn't supported, present an error */
     if (coordinator == nil) {
-        [self resetScanState];
-        callback(@[[error localizedDescription]]);
+        [self finishWithResults:@[[error localizedDescription]]];
 
         //    NSString *messageString = [error localizedDescription];
         //    [[[UIAlertView alloc] initWithTitle:@"Warning"
@@ -197,6 +198,7 @@ RCT_EXPORT_METHOD(scan:(NSDictionary*) options callback:(RCTResponseSenderBlock)
 
 RCT_EXPORT_METHOD(dismiss:(RCTResponseSenderBlock)callback)
 {
+    [self finishWithResults:@[RNMBDeveloperCanceledError]];
     [self dismissScanningView];
     if (callback) {
         callback(@[]);
@@ -228,6 +230,7 @@ RCT_EXPORT_METHOD(dismiss:(RCTResponseSenderBlock)callback)
 - (void)scanningViewControllerDidClose:(UIViewController<PPScanningViewController> *)scanningViewController {
 
     // As scanning view controller is presented full screen and modally, dismiss it
+    [self finishWithResults:@[RNMBUserCanceledError]];
     [self dismissScanningView];
 }
 
@@ -359,6 +362,14 @@ RCT_EXPORT_METHOD(dismiss:(RCTResponseSenderBlock)callback)
     callback(@[[NSNull null], json]);
 }
 
+- (void) finishWithResults:(NSArray*) results {
+    if (self.callback && results) {
+        self.callback(results);
+    }
+
+    [self resetScanState];
+}
+
 - (void) resetScanState {
     self.callback = nil;
     self.options = nil;
@@ -488,7 +499,7 @@ RCT_EXPORT_METHOD(dismiss:(RCTResponseSenderBlock)callback)
 
 // dismiss the scanning view controller when user presses OK.
 //- (void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex {
-//  [self dismissScanningView];
+//    [self dismissScanningView];
 //}
 
 - (void) dismissScanningView {
