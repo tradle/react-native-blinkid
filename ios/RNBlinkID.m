@@ -16,6 +16,7 @@ NSString *const RNMBDocumentDecodingId = @"RNMBDocumentDecodingId";
 NSString *const RNMBMRTDDecodingId = @"RNMBMRTDDecodingId";
 NSString *const RNMBScanInProgressError = @"RNMBScanInProgressError";
 NSString *const RNMBUserCanceledError = @"RNMBUserCanceledError";
+NSString *const RNMBTimedOutError = @"RNMBTimedOutError";
 NSString *const RNMBDeveloperCanceledError = @"RNMBDeveloperCanceledError";
 
 @interface RNBlinkID () <RCTBridgeModule, PPScanningDelegate>
@@ -77,6 +78,11 @@ RCT_EXPORT_METHOD(scan:(NSDictionary*) options callback:(RCTResponseSenderBlock)
     NSString* licenseKey = [options objectForKey:@"licenseKey"];
     if (!licenseKey) licenseKey = self.licenseKey;
     settings.licenseSettings.licenseKey = licenseKey;
+
+    NSNumber* timeout = [options objectForKey:@"timeout"];
+    if (timeout) {
+        settings.scanSettings.partialRecognitionTimeout = [timeout doubleValue];
+    }
 
     NSDictionary* mrtd = [options objectForKey:@"mrtd"];
     if (mrtd) {
@@ -313,7 +319,11 @@ RCT_EXPORT_METHOD(dismiss:(RCTResponseSenderBlock)callback)
         // }
     };
 
-    if ([json count] == 0) return;
+    if ([json count] == 0) {
+        // probably timed out
+        [self finishWithResults:@[RNMBTimedOutError]];
+        return;
+    }
 
     // first, pause scanning until we process all the results
     [scanningViewController pauseScanning];
