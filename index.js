@@ -23,8 +23,11 @@ const normalizers = {
   eudl: normalizeEUDLResult
 }
 
+const SCAN_IN_PROGRESS_ERROR = new Error('RNMBScanInProgress')
+
 module.exports = (function () {
   let licenseKeySet
+  let scanInProgress
 
   if (notSupportedBecause) return { notSupportedBecause }
 
@@ -48,31 +51,44 @@ module.exports = (function () {
      * @return {Promise}
      */
     scan: async (opts={}) => {
-      const { licenseKey } = opts
-      if (licenseKey) {
-        opts = {
-          ...opts,
-          licenseKey
-        }
-      } else if (!licenseKeySet) {
-        throw new Error('set or pass in licenseKey first')
+      if (scanInProgress) {
+        throw SCAN_IN_PROGRESS_ERROR
       }
 
-      for (let p in opts) {
-        let validate = validators[p]
-        if (validate) validate(opts[p])
+      scanInProgress = true
+      try {
+        return doScan(opts)
+      } finally {
+        scanInProgress = false
       }
-
-      const result = await scan(opts)
-      for (let p in result) {
-        let normalize = normalizers[p]
-        if (normalize) {
-          result[p] = normalize(result[p])
-        }
-      }
-
-      return result
     }
+  }
+
+  async function doScan (opts={}) {
+    const { licenseKey } = opts
+    if (licenseKey) {
+      opts = {
+        ...opts,
+        licenseKey
+      }
+    } else if (!licenseKeySet) {
+      throw new Error('set or pass in licenseKey first')
+    }
+
+    for (let p in opts) {
+      let validate = validators[p]
+      if (validate) validate(opts[p])
+    }
+
+    const result = await scan(opts)
+    for (let p in result) {
+      let normalize = normalizers[p]
+      if (normalize) {
+        result[p] = normalize(result[p])
+      }
+    }
+
+    return result
   }
 }())
 
