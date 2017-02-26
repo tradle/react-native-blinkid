@@ -49,13 +49,11 @@ public class RNBlinkIDModule extends ReactContextBaseJavaModule implements Lifec
   private final ReactApplicationContext reactContext;
   private final String notSupportedBecause;
   private String licenseKey;
-  private static final String E_SCAN_FAILED_INVALID = "E_SCAN_FAILED_INVALID";
-  private static final String E_SCAN_FAILED_EMPTY = "E_SCAN_FAILED_EMPTY";
-  private static final String E_REQUIRES_AUTOFOCUS = "E_REQUIRES_AUTOFOCUS";
-  private static final String E_ONE_REQ_AT_A_TIME = "E_ONE_REQ_AT_A_TIME";
-  private static final String E_EXPECTED_LICENSE_KEY = "E_EXPECTED_LICENSE_KEY";
-  private static final String E_NOT_SUPPORTED = "E_NOT_SUPPORTED";
-  private static final String E_DEVELOPER_ERROR = "E_DEVELOPER_ERROR";
+  private static final String E_USER_CANCELED = "RNMBUserCanceledError";
+  private static final String E_FAILED_INVALID = "RNMBInvalidResultError";
+  private static final String E_FAILED_EMPTY = "RNMBEmptyResultError";
+  private static final String E_FAILED_NO_AUTOFOCUS = "RNMBNoAutofocusError";
+  private static final String E_DEVELOPER_ERROR = "RNMBDeveloperError";
   private static final String JPEG_DATA_URI_PREFIX = "data:image/jpeg;base64,";
   private static final String TYPE_EUDL = "eudl";
   private static final String TYPE_MRTD = "mrtd";
@@ -86,6 +84,11 @@ public class RNBlinkIDModule extends ReactContextBaseJavaModule implements Lifec
     @Override
     public void onActivityResult(Activity activity, int requestCode, int resultCode, Intent data) {
       if (requestCode != SCAN_REQUEST_CODE) return;
+      if (resultCode == ScanCard.RESULT_CANCELED) {
+        onCanceled();
+        return;
+      }
+
       if (resultCode != ScanCard.RESULT_OK || data == null) {
         resetForNextScan();
         return;
@@ -218,13 +221,14 @@ public class RNBlinkIDModule extends ReactContextBaseJavaModule implements Lifec
       } else if (hasInvalid) {
         // not all relevant data was scanned, ask user
         // to try again
-        scanPromise.reject(E_SCAN_FAILED_INVALID, "Scan failed to extract valid data");
+        onInvalidResultError();
       } else if (hasEmpty) {
         // not all relevant data was scanned, ask user
         // to try again
-        scanPromise.reject(E_SCAN_FAILED_EMPTY, "Scan failed");
+        onEmptyError();
       } else {
-        scanPromise.reject(E_DEVELOPER_ERROR, "This should not happen, please report to react-native-blinkid developers");
+        onDeveloperError();
+//        scanPromise.reject(E_DEVELOPER_ERROR, "This should not happen, please report to react-native-blinkid developers");
       }
 
       resetForNextScan();
@@ -310,19 +314,9 @@ public class RNBlinkIDModule extends ReactContextBaseJavaModule implements Lifec
 
   @ReactMethod
   public void scan(ReadableMap opts, final Promise promise) {
-    if (scanPromise != null) {
-      promise.reject(E_ONE_REQ_AT_A_TIME, "Already running a scan");
-      return;
-    }
-
     String licenseKey = getString(opts, "licenseKey");
     if (licenseKey == null) {
       licenseKey = this.licenseKey;
-    }
-
-    if (licenseKey == null) {
-      promise.reject(E_EXPECTED_LICENSE_KEY, "License key was not provided");
-      return;
     }
 
     resetForNextScan();
@@ -335,19 +329,20 @@ public class RNBlinkIDModule extends ReactContextBaseJavaModule implements Lifec
     intent.putExtra(ScanCard.EXTRAS_CAMERA_TYPE, (Parcelable) CameraType.CAMERA_BACKFACE);
 
     RecognitionSettings settings = new RecognitionSettings();
-//    settings.setNumMsBeforeTimeout(20000);
-
     RecognizerSettings[] recognizerSettings = getRecognitionSettings(opts);
     if (!RecognizerCompatibility.cameraHasAutofocus(CameraType.CAMERA_BACKFACE, reactContext)) {
       int length = recognizerSettings.length;
       recognizerSettings = RecognizerSettingsUtils.filterOutRecognizersThatRequireAutofocus(recognizerSettings);
       if (recognizerSettings.length != length) {
-        scanPromise.reject(E_REQUIRES_AUTOFOCUS, "This scanning operation requires autofocus");
+        reject(E_FAILED_NO_AUTOFOCUS);
         return;
       }
     }
 
     settings.setRecognizerSettingsArray(recognizerSettings);
+    if (opts.hasKey("timeout")) {
+      settings.setNumMsBeforeTimeout(opts.getInt("timeout"));
+    }
 
     intent.putExtra(ScanCard.EXTRAS_RECOGNITION_SETTINGS, settings);
     // pass implementation of image listener that will obtain document images
@@ -357,6 +352,32 @@ public class RNBlinkIDModule extends ReactContextBaseJavaModule implements Lifec
 
     // Starting Activity
     currentActivity.startActivityForResult(intent, SCAN_REQUEST_CODE);
+  }
+
+  private void onCanceled() {
+    reject(E_USER_CANCELED);
+    resetForNextScan();
+  }
+
+  private void onInvalidResultError() {
+    reject(E_FAILED_INVALID);
+    resetForNextScan();
+  }
+
+  private void onEmptyError() {
+    reject(E_FAILED_EMPTY);
+    resetForNextScan();
+  }
+
+  private void onDeveloperError() {
+    reject(E_DEVELOPER_ERROR);
+    resetForNextScan();
+  }
+
+  private void reject(String message) {
+    if (scanPromise != null) {
+      scanPromise.reject(null, message);
+    }
   }
 
   public void resetForNextScan() {
