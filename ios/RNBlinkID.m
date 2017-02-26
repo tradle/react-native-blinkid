@@ -7,6 +7,7 @@
 
 #import <Foundation/Foundation.h>
 #import "RNBlinkID.h"
+#import "RNBlinkIDOverlayViewController.h"
 #import <MicroBlink/MicroBlink.h>
 #import "RCTConvert.h"
 
@@ -172,24 +173,34 @@ RCT_EXPORT_METHOD(scan:(NSDictionary*) options callback:(RCTResponseSenderBlock)
             root = root.presentedViewController;
         }
 
-        /** Allocate and present the scanning view controller */
-        UIViewController<PPScanningViewController>* scanningViewController = [PPViewControllerFactory cameraViewControllerWithDelegate:self coordinator:coordinator error:nil];
+        RNBlinkIDOverlayViewController* overlayController = [[RNBlinkIDOverlayViewController alloc] init];
+        NSString* tooltip = [self.options objectForKey:@"tooltip"];
+        if (tooltip) {
+            overlayController.customTooltipLabel = tooltip;
+        }
 
-        // allow rotation if VC is displayed as a modal view controller
+        UIViewController<PPScanningViewController>* scanningViewController = [PPViewControllerFactory
+                                                                              cameraViewControllerWithDelegate:self
+                                                                              overlayViewController:overlayController
+                                                                              coordinator:coordinator
+                                                                              error:nil];
+        
         scanningViewController.autorotate = YES;
         scanningViewController.supportedOrientations = UIInterfaceOrientationMaskAll;
         if (scanningViewController.isScanningPaused) {
             [scanningViewController resumeScanningAndResetState:true];
         }
-
-        /** You can use other presentation methods as well */
+        
         [root presentViewController:scanningViewController animated:YES completion:nil];
     });
 }
 
-RCT_EXPORT_METHOD(dismiss)
+RCT_EXPORT_METHOD(dismiss:(RCTResponseSenderBlock)callback)
 {
     [self dismissScanningView];
+    if (callback) {
+        callback(@[]);
+    }
 }
 
 - (UIViewController*) getRoot

@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		73612D331E633F1900E59A1B /* RNBlinkIDOverlayViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 73612D321E633F1900E59A1B /* RNBlinkIDOverlayViewController.m */; };
 		73997FC01E302F28008B8D47 /* RNBlinkID.m in Sources */ = {isa = PBXBuildFile; fileRef = 73997FBF1E302F28008B8D47 /* RNBlinkID.m */; };
 		739980281E30361F008B8D47 /* Accelerate.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 739980271E30361F008B8D47 /* Accelerate.framework */; };
 		7399802A1E303624008B8D47 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 739980291E303624008B8D47 /* AVFoundation.framework */; };
@@ -27,6 +28,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		73612D311E633F1900E59A1B /* RNBlinkIDOverlayViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RNBlinkIDOverlayViewController.h; sourceTree = SOURCE_ROOT; };
+		73612D321E633F1900E59A1B /* RNBlinkIDOverlayViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = RNBlinkIDOverlayViewController.m; sourceTree = SOURCE_ROOT; };
 		73997FB21E302EBD008B8D47 /* libRNBlinkID.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libRNBlinkID.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		73997FBE1E302F28008B8D47 /* RNBlinkID.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RNBlinkID.h; sourceTree = SOURCE_ROOT; };
 		73997FBF1E302F28008B8D47 /* RNBlinkID.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = RNBlinkID.m; sourceTree = SOURCE_ROOT; };
@@ -84,6 +87,8 @@
 			children = (
 				73997FBE1E302F28008B8D47 /* RNBlinkID.h */,
 				73997FBF1E302F28008B8D47 /* RNBlinkID.m */,
+				73612D311E633F1900E59A1B /* RNBlinkIDOverlayViewController.h */,
+				73612D321E633F1900E59A1B /* RNBlinkIDOverlayViewController.m */,
 			);
 			path = RNBlinkID;
 			sourceTree = "<group>";
@@ -156,6 +161,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				73612D331E633F1900E59A1B /* RNBlinkIDOverlayViewController.m in Sources */,
 				73997FC01E302F28008B8D47 /* RNBlinkID.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
