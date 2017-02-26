@@ -8,7 +8,7 @@ if (Platform.OS === 'ios') {
   RNBlinkID = promisifyAll(RNBlinkID)
 }
 
-const { scan, dismiss, setLicenseKey, notSupportedBecause } = RNBlinkID
+const { scan, setLicenseKey, notSupportedBecause } = RNBlinkID
 const resultProps = ['mrtd', 'usdl', 'eudl']
 const validators = {
   mrtd: validateMRTDOptions,
@@ -24,22 +24,23 @@ const normalizers = {
 }
 
 module.exports = (function () {
-  let LICENSE_KEY
+  let licenseKeySet
 
   if (notSupportedBecause) return { notSupportedBecause }
 
   return {
     ...RNBlinkID,
     setLicenseKey: key => {
-      LICENSE_KEY = key
+      licenseKeySet = true
       return setLicenseKey(key)
     },
     /**
      * start a scan
      * @param  {Object} opts
-     * @param  {Boolean} [base64] - if true, returns base64 image
+     * @param  {Boolean}[base64] - if true, returns base64 image
      * @param  {String} [imagePath] - path to which to save image
-     * @param  {String} [licenseKey=LICENSE_KEY]
+     * @param  {String} [licenseKey]
+     * @param  {String} [opts.tooltip] - tooltip text for camera view
      * @param  {Object} [opts.mrtd]
      * @param  {Object} [opts.usdl]
      * @param  {Object} [opts.eudl]
@@ -47,19 +48,19 @@ module.exports = (function () {
      * @return {Promise}
      */
     scan: async (opts={}) => {
-      const licenseKey = opts.licenseKey || LICENSE_KEY
-      if (!licenseKey) {
+      const { licenseKey } = opts
+      if (licenseKey) {
+        opts = {
+          ...opts,
+          licenseKey
+        }
+      } else if (!licenseKeySet) {
         throw new Error('set or pass in licenseKey first')
       }
 
       for (let p in opts) {
         let validate = validators[p]
         if (validate) validate(opts[p])
-      }
-
-      opts = {
-        ...opts,
-        licenseKey
       }
 
       const result = await scan(opts)
@@ -155,6 +156,10 @@ function promisify (fn) {
     return new Promise((resolve, reject) => {
       args.push((err, res) => {
         if (err) {
+          if (typeof err === 'string') {
+            err = new Error(err)
+          }
+
           reject(err)
         } else {
           resolve(res)
