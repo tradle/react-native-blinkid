@@ -27,6 +27,7 @@ NSString *const RNMBDeveloperCanceledError = @"RNMBDeveloperCanceledError";
 @property (nonatomic, strong) NSDictionary* options;
 @property (nonatomic, strong) NSString* licenseKey;
 @property (nonatomic, strong) NSString* notSupportedBecause;
+@property (nonatomic, assign) BOOL scanning;
 
 @end
 
@@ -64,11 +65,7 @@ RCT_EXPORT_METHOD(setLicenseKey:(NSString*) key callback:(RCTResponseSenderBlock
 
 RCT_EXPORT_METHOD(scan:(NSDictionary*) options callback:(RCTResponseSenderBlock)callback)
 {
-    if (self.callback) {
-        callback(@[RNMBScanInProgressError]);
-        return;
-    }
-
+    self.scanning = YES;
     self.callback = callback;
     self.options = options;
     NSString* imagePath = [options valueForKey:@"imagePath"];
@@ -205,7 +202,6 @@ RCT_EXPORT_METHOD(scan:(NSDictionary*) options callback:(RCTResponseSenderBlock)
 RCT_EXPORT_METHOD(dismiss:(RCTResponseSenderBlock)callback)
 {
     [self finishWithResults:@[RNMBDeveloperCanceledError]];
-    [self dismissScanningView];
     if (callback) {
         callback(@[]);
     }
@@ -237,11 +233,15 @@ RCT_EXPORT_METHOD(dismiss:(RCTResponseSenderBlock)callback)
 
     // As scanning view controller is presented full screen and modally, dismiss it
     [self finishWithResults:@[RNMBUserCanceledError]];
-    [self dismissScanningView];
 }
 
 - (void)scanningViewController:(UIViewController<PPScanningViewController> *)scanningViewController
               didOutputResults:(NSArray<PPRecognizerResult*> *)results {
+
+    if (!self.scanning) {
+        [scanningViewController pauseScanning];
+        return;
+    }
 
     /**
      * Here you process scanning results. Scanning results are given in the array of PPRecognizerResult objects.
@@ -366,18 +366,18 @@ RCT_EXPORT_METHOD(dismiss:(RCTResponseSenderBlock)callback)
         [json setObject:imageInfo forKey:@"image"];
     }
 
-    RCTResponseSenderBlock callback = self.callback;
-    [self resetScanState];
-    [[self getRoot] dismissViewControllerAnimated:YES completion:nil];
-    callback(@[[NSNull null], json]);
+    [self finishWithResults:@[[NSNull null], json]];
 }
 
 - (void) finishWithResults:(NSArray*) results {
+    if (!self.scanning) return;
+
     if (self.callback && results) {
         self.callback(results);
     }
 
     [self resetScanState];
+    [self dismissScanningView];
 }
 
 - (void) resetScanState {
@@ -394,6 +394,7 @@ RCT_EXPORT_METHOD(dismiss:(RCTResponseSenderBlock)callback)
 }
 
 - (void)scanningViewController:(UIViewController<PPScanningViewController> *)scanningViewController didOutputMetadata:(PPMetadata *)metadata {
+    if (!self.scanning) return;
 
     // Check if metadata obtained is image. You can set what type of image is outputed by setting different properties of PPMetadataSettings (currently, dewarpedImage is set at line 57)
     if ([metadata isKindOfClass:[PPImageMetadata class]]) {
@@ -513,10 +514,11 @@ RCT_EXPORT_METHOD(dismiss:(RCTResponseSenderBlock)callback)
 //}
 
 - (void) dismissScanningView {
-    [self resetScanState];
-    [[self getRoot] dismissViewControllerAnimated:YES completion:nil];
+    if (self.scanning) {
+        self.scanning = NO;
+        [[self getRoot] dismissViewControllerAnimated:YES completion:nil];
+    }
 }
-
 
 //- (NSDictionary*) parseName: (NSString*)name {
 //  NSMutableDictionary names = [NSMutableDictionary dictionary];
