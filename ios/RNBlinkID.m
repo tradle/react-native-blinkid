@@ -191,13 +191,13 @@ RCT_EXPORT_METHOD(scan:(NSDictionary*) options callback:(RCTResponseSenderBlock)
                                                                               overlayViewController:overlayController
                                                                               coordinator:coordinator
                                                                               error:nil];
-        
+
         scanningViewController.autorotate = YES;
         scanningViewController.supportedOrientations = UIInterfaceOrientationMaskAll;
         if (scanningViewController.isScanningPaused) {
             [scanningViewController resumeScanningAndResetState:true];
         }
-        
+
         [root presentViewController:scanningViewController animated:YES completion:nil];
     });
 }
@@ -447,7 +447,7 @@ RCT_EXPORT_METHOD(dismiss:(RCTResponseSenderBlock)callback)
                      @"street": [usdlResult getField:kPPAddressStreet],
                      @"city": [usdlResult getField:kPPAddressCity],
                      @"state": [usdlResult getField:kPPAddressJurisdictionCode],
-                     @"postalCode": [usdlResult getField:kPPAddressJurisdictionCode],
+                     @"postalCode": [usdlResult getField:kPPAddressPostalCode],
                      },
              @"document": @{
                      @"dateOfIssue": [usdlResult getField:kPPDocumentIssueDate],
