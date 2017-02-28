@@ -27,6 +27,7 @@ NSString *const RNMBDeveloperCanceledError = @"RNMBDeveloperCanceledError";
 @property (nonatomic, strong) NSDictionary* options;
 @property (nonatomic, strong) NSString* licenseKey;
 @property (nonatomic, strong) NSString* notSupportedBecause;
+@property (nonatomic, strong) UIViewController<PPScanningViewController>* scanningViewController;
 @property (nonatomic, assign) BOOL scanning;
 
 @end
@@ -183,19 +184,19 @@ RCT_EXPORT_METHOD(scan:(NSDictionary*) options callback:(RCTResponseSenderBlock)
             overlayController.customTooltipLabel = tooltip;
         }
 
-        UIViewController<PPScanningViewController>* scanningViewController = [PPViewControllerFactory
-                                                                              cameraViewControllerWithDelegate:self
-                                                                              overlayViewController:overlayController
-                                                                              coordinator:coordinator
-                                                                              error:nil];
+        self.scanningViewController = [PPViewControllerFactory
+                                          cameraViewControllerWithDelegate:self
+                                          overlayViewController:overlayController
+                                          coordinator:coordinator
+                                          error:nil];
 
-        scanningViewController.autorotate = YES;
-        scanningViewController.supportedOrientations = UIInterfaceOrientationMaskAll;
-        if (scanningViewController.isScanningPaused) {
-            [scanningViewController resumeScanningAndResetState:true];
+        self.scanningViewController.autorotate = YES;
+        self.scanningViewController.supportedOrientations = UIInterfaceOrientationMaskAll;
+        if (self.scanningViewController.isScanningPaused) {
+            [self.scanningViewController resumeScanningAndResetState:true];
         }
 
-        [root presentViewController:scanningViewController animated:YES completion:nil];
+        [root presentViewController:self.scanningViewController animated:YES completion:nil];
     });
 }
 
@@ -325,9 +326,6 @@ RCT_EXPORT_METHOD(dismiss:(RCTResponseSenderBlock)callback)
         return;
     }
 
-    // first, pause scanning until we process all the results
-    [scanningViewController pauseScanning];
-
     //  NSMutableDictionary* result = [NSMutableDictionary dictionaryWithDictionary:@{
     //                           @"title":title,
     //                           @"message":message
@@ -372,6 +370,10 @@ RCT_EXPORT_METHOD(dismiss:(RCTResponseSenderBlock)callback)
 - (void) finishWithResults:(NSArray*) results {
     if (!self.scanning) return;
 
+    if (!self.scanningViewController.isScanningPaused) {
+        [self.scanningViewController pauseScanning];
+    }
+
     if (self.callback && results) {
         self.callback(results);
     }
@@ -385,6 +387,7 @@ RCT_EXPORT_METHOD(dismiss:(RCTResponseSenderBlock)callback)
     self.options = nil;
     self.dewarpedImage = nil;
     self.image = nil;
+    self.scanningViewController = nil;
 }
 
 - (void)scanningViewController:(UIViewController<PPScanningViewController> *)scanningViewController didFinishDetectionWithResult:(PPDetectorResult *)result {
