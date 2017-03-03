@@ -481,7 +481,7 @@ RCT_EXPORT_METHOD(dismiss:(RCTResponseSenderBlock)callback)
         case PPEudlCountryAustria:
             country = @"AUT";
             break;
-        case PPEudlCountryAny:
+        default:
             country = @"";
             break;
     }
@@ -489,19 +489,19 @@ RCT_EXPORT_METHOD(dismiss:(RCTResponseSenderBlock)callback)
     //  NSDictionary* names = [self parseName:[eudlResult ownerFirstName]];
     return @{
              @"personal": @{
-                     @"firstName": [eudlResult ownerFirstName],
-                     @"lastName": [eudlResult ownerLastName],
-                     @"birthData": [eudlResult ownerBirthData]
+                     @"firstName": [eudlResult ownerFirstName] ?: @"",
+                     @"lastName": [eudlResult ownerLastName] ?: @"",
+                     @"birthData": [eudlResult ownerBirthData] ?: @""
                      },
              @"address": @{
-                     @"full": [eudlResult ownerAddress]
+                     @"full": [eudlResult ownerAddress] ?: @""
                      },
              @"document": @{
-                     @"dateOfIssue": [eudlResult documentIssueDate],
-                     @"dateOfExpiry": [eudlResult documentExpiryDate],
-                     @"documentNumber": [eudlResult driverNumber] ?: [NSNull null],
-                     @"personalNumber": [eudlResult personalNumber] ?: [NSNull null],
-                     @"issuer": [eudlResult documentIssuingAuthority],
+                     @"dateOfIssue": [eudlResult documentIssueDate] ?: @"",
+                     @"dateOfExpiry": [eudlResult documentExpiryDate] ?: @"",
+                     @"documentNumber": [eudlResult driverNumber] ?: @"",
+                     @"personalNumber": [eudlResult personalNumber] ?: @"",
+                     @"issuer": [eudlResult documentIssuingAuthority] ?: @"",
                      @"country": country
                      }
              };
