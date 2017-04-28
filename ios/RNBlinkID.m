@@ -192,9 +192,9 @@ RCT_EXPORT_METHOD(scan:(NSDictionary*) options callback:(RCTResponseSenderBlock)
 
         self.scanningViewController.autorotate = YES;
         self.scanningViewController.supportedOrientations = UIInterfaceOrientationMaskAll;
-        if (self.scanningViewController.isScanningPaused) {
-            [self.scanningViewController resumeScanningAndResetState:true];
-        }
+        // if (self.scanningViewController.isScanningPaused) {
+        //     [self.scanningViewController resumeScanningAndResetState:true];
+        // }
 
         [root presentViewController:self.scanningViewController animated:YES completion:nil];
     });
