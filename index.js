@@ -163,8 +163,14 @@ function parseUSDate (str) {
   return dateFromParts({ day, month, year })
 }
 
+/**
+ * @return {Number} UTC millis
+ */
 function dateFromParts ({ day, month, year }) {
-  return new Date(`${year}/${month}/${day}`).getTime()
+  year = Number(year)
+  month = Number(month) - 1
+  day = Number(day)
+  return Date.UTC(year, month, day)
 }
 
 function promisify (fn) {
