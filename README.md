@@ -22,7 +22,9 @@ end
 
 ## Android
 
-### Automatic 
+You need to use SDK 25 in your project (set `compileSdkVersion 25`, `buildToolsVersion '25.0.3'` and `compile 'com.android.support:appcompat-v7:25.+'`).
+
+### Automatic
 
 ```sh
 react-native link react-native-blinkid
@@ -34,14 +36,20 @@ react-native link react-native-blinkid
   - Add `import io.tradle.blinkid.RNBlinkIDPackage;` to the imports at the top of the file
   - Add `new RNBlinkIDPackage()` to the list returned by the `getPackages()` method
 2. Append the following lines to `android/settings.gradle`:
-       ```
-       include ':react-native-blinkid'
-       project(':react-native-blinkid').projectDir = new File(rootProject.projectDir,  '../node_modules/react-native-blinkid/android')
-       ```
+
+```
+include ':react-native-blinkid'
+project(':react-native-blinkid').projectDir = new File(rootProject.projectDir,  '../node_modules/react-native-blinkid/android')
+```
 3. Insert the following lines inside the dependencies block in `android/app/build.gradle`:
-       ```
-      compile project(':react-native-blinkid')
-       ```
+
+```
+compile project(':react-native-blinkid')
+```
+
+### For both (automatic and manual) installations
+
+Add maven repo `maven { url 'http://maven.microblink.com' }` to `android/build.gradle` allprojects repositories
 
 ## Usage
 ## JS
