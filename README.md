@@ -12,13 +12,16 @@ react-native link react-native-blinkid
 
 ## iOS
 
-add to Podfile:
+Follow the BlinkID SDK's instructions for installing [their SDK](https://github.com/BlinkID/blinkid-ios/wiki/Getting-started) 
 
+Afterwards, if you used Cocoapods to install, double-check the size of the installed MicroBlink.framework:
+
+```sh
+$ find . -name MicroBlink.framework -exec du -sh {} \;
+170M  ./iOS/Pods/PPBlinkID/MicroBlink.framework
 ```
-target 'yourprojectname' do
-  pod 'PPBlinkID', '~> 2.5.1'
-end
-```
+
+If it's less than 100MB, something's wrong. Clean your Pods cache, make sure `git lfs` got installed, open and close all the doors and windows in your grandmother's house, and try again.
 
 ## Android
 
