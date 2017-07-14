@@ -420,14 +420,14 @@ RCT_EXPORT_METHOD(dismiss:(RCTResponseSenderBlock)callback)
                      @"lastName": [mrtdResult primaryId],
                      @"firstName": [mrtdResult secondaryId],
                      @"nationality": [mrtdResult nationality],
-                     @"dateOfBirth": [self dateToMillis:[mrtdResult dateOfBirth]],
+                     @"dateOfBirth": [self dateToUTCMillis:[mrtdResult dateOfBirth]],
                      @"sex": [mrtdResult sex]
                      },
              @"document": @{
                      @"issuer": [mrtdResult issuer],
                      @"documentNumber": [mrtdResult documentNumber],
                      @"documentCode": [mrtdResult documentCode],
-                     @"dateOfExpiry": [self dateToMillis:[mrtdResult dateOfExpiry]],
+                     @"dateOfExpiry": [self dateToUTCMillis:[mrtdResult dateOfExpiry]],
                      @"opt1": [mrtdResult opt1],
                      @"opt2": [mrtdResult opt2],
                      @"mrzText": [mrtdResult mrzText]
@@ -507,8 +507,17 @@ RCT_EXPORT_METHOD(dismiss:(RCTResponseSenderBlock)callback)
              };
 }
 
-- (NSNumber*) dateToMillis:(NSDate*) date {
-    return @((long long)([date timeIntervalSince1970] * 1000.0));
+- (NSNumber*) dateToUTCMillis:(NSDate*) date {
+  NSCalendar *calendar = [NSCalendar currentCalendar];
+  NSDateComponents *components = [[NSCalendar currentCalendar] components:NSCalendarUnitDay | NSCalendarUnitMonth | NSCalendarUnitYear fromDate:date];
+
+  [components setHour:0];
+  [components setMinute:0];
+  [components setSecond:0];
+  [components setTimeZone:[NSTimeZone timeZoneWithName:@"UTC"]];
+
+  NSDate *utc = [calendar dateFromComponents:components];
+  return @((long long)([utc timeIntervalSince1970] * 1000.0));
 }
 
 // dismiss the scanning view controller when user presses OK.
