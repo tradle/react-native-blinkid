@@ -3,6 +3,8 @@ import {
   Platform
 } from 'react-native'
 
+import MRZ from 'mrz'
+
 let { RNBlinkID } = NativeModules
 if (Platform.OS === 'ios') {
   RNBlinkID = promisifyAll(RNBlinkID)
@@ -123,7 +125,41 @@ function normalizeEUDLResult (result) {
 }
 
 function normalizeMRTDResult (result) {
+  const { personal, document } = result
+  const { mrzText } = document
+  const mrzParts = mrzText
+    .split('\n')
+    .map(s => s.trim())
+    .filter(s => s)
+
+  const mrz = MRZ.parse(mrzParts)
+  const { birthDate, expirationDate } = mrz.fields
+  personal.dateOBirthStr = birthDate
+  personal.dateOfBirth = dateFromParts(parseYYMMDD(birthDate))
+  document.dateOfExpiryStr = expirationDate
+  document.dateOfExpiry = dateFromParts(parseYYMMDD(expirationDate))
   return result
+}
+
+// courtesy of https://github.com/newtondev/mrz-parser
+function parseYYMMDD (str) {
+  let d = new Date()
+  d.setFullYear(d.getFullYear() + 15)
+  let centennial = (""+d.getFullYear()).substring(2, 4)
+
+  let year
+  if (str.slice(0, 2) > centennial) {
+    year = '19' + str.slice(0, 2)
+  } else {
+    year = '20' + str.slice(0, 2)
+  }
+
+  return {
+    year: parseInt(year, 10),
+    month: parseInt(str.slice(2, 4), 10),
+    day: parseInt(str.slice(4, 6), 10),
+    original: str
+  }
 }
 
 function normalizeUSDLResult (result) {

@@ -19,5 +19,8 @@
   },
   "scripts": {
     "lint": "eslint --quiet --ignore-path .gitignore ."
+  },
+  "dependencies": {
+    "mrz": "^3.1.0"
   }
 }

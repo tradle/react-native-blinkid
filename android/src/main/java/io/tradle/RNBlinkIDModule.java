@@ -34,7 +34,6 @@ import com.microblink.recognizers.blinkid.mrtd.MRTDRecognizerSettings;
 import com.microblink.recognizers.settings.RecognitionSettings;
 import com.microblink.recognizers.settings.RecognizerSettings;
 import com.microblink.recognizers.settings.RecognizerSettingsUtils;
-import com.microblink.results.date.DateResult;
 import com.microblink.util.RecognizerCompatibility;
 import com.microblink.util.RecognizerCompatibilityStatus;
 
@@ -130,17 +129,17 @@ public class RNBlinkIDModule extends ReactContextBaseJavaModule implements Lifec
           type = TYPE_EUDL;
           EUDLRecognitionResult result = (EUDLRecognitionResult) baseResult;
           IResultHolder resultHolder = result.getResultHolder();
-          document.putString("birthData", resultHolder.getString("ownerBirthData"));
-          document.putString("dateOfExpiryStr", resultHolder.getString("documentExpiryDate"));
-          document.putString("dateOfIssueStr", resultHolder.getString("documentIssueDate"));
-
           personal.putString("firstName", result.getFirstName());
           personal.putString("lastName", result.getLastName());
           personal.putString("placeOfBirth", result.getPlaceOfBirth());
-          personal.putDouble("dateOfBirth", result.getDateOfBirth().getTime());
+//          personal.putDouble("dateOfBirth", result.getDateOfBirth().getTime());
+          personal.putString("birthData", result.getResultHolder().getString("ownerBirthData"));
+
+//          document.putDouble("dateOfExpiry", result.getDocumentExpiryDate().getTime());
+          document.putString("dateOfExpiry", resultHolder.getString("documentExpiryDate"));
+//          document.putDouble("dateOfIssue", result.getDocumentIssueDate().getTime());
+          document.putString("dateOfIssue", resultHolder.getString("documentIssueDate"));
           document.putString("documentNumber", result.getDriverNumber());
-          document.putDouble("dateOfIssue", result.getDocumentIssueDate().getTime());
-          document.putDouble("dateOfExpiry", result.getDocumentExpiryDate().getTime());
           document.putString("issuer",  result.getDocumentIssuingAuthority());
           EUDLCountry eudlCountry = result.getCountry();
           if (eudlCountry != EUDLCountry.EUDL_COUNTRY_AUTO) {
@@ -188,15 +187,15 @@ public class RNBlinkIDModule extends ReactContextBaseJavaModule implements Lifec
             personal.putString("lastName", result.getPrimaryId());
             personal.putString("firstName", result.getSecondaryId());
             personal.putString("nationality", result.getNationality());
-            personal.putDouble("dateOfBirth", result.getDateOfBirth().getTime());
-            personal.putString("dateOfBirthStr", result.getRawDateOfBirth());
+//            personal.putDouble("dateOfBirth", result.getDateOfBirth().getTime());
+//            personal.putString("dateOfBirthStr", result.getRawDateOfBirth());
             personal.putString("sex", result.getSex());
 
             document.putString("issuer", result.getIssuer());
             document.putString("documentNumber", result.getDocumentNumber());
             document.putString("documentCode", result.getDocumentCode());
-            document.putDouble("dateOfExpiry", result.getDateOfExpiry().getTime());
-            personal.putString("dateOfExpiryStr", result.getRawDateOfExpiry());
+//            document.putDouble("dateOfExpiry", result.getDateOfExpiry().getTime());
+//            document.putString("dateOfExpiryStr", result.getRawDateOfExpiry());
             document.putString("opt1", result.getOpt1());
             document.putString("opt2", result.getOpt2());
             document.putString("mrzText", result.getMRZText());
